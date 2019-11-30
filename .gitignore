@@ -25,3 +25,11 @@ hs_err_pid*
 *.iml
 
 .idea/
+
+target/maven-status/maven-compiler-plugin/compile/default-compile/
+
+*.lst
+
+target/classes/META-INF/
+
+target/maven-archiver/

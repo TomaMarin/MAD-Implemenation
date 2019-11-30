@@ -1,3 +1,4 @@
+
 import java.util.Objects;
 
 public class DataRow {
@@ -126,6 +127,6 @@ public class DataRow {
                 ", mathScore=" + mathScore +
                 ", readingScore=" + readingScore +
                 ", writingScore=" + writingScore +
-                '}';
+                '}'+"\n";
     }
 }

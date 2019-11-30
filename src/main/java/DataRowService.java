@@ -1,3 +1,6 @@
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -5,42 +8,66 @@ import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+@Getter @Setter
 public class DataRowService {
+    private String[] headerValues;
     DataRowService() {
     }
 
-    void read(String fileName) {
+    List<DataRow> read(String fileName, String delimiter, boolean isHeaderRow) {
         List<List<String>> records = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+            if (isHeaderRow) {
+               setHeaderValues(br.readLine().split(delimiter));
+            }
             String line;
             List<DataRow> data = new ArrayList<>();
             while ((line = br.readLine()) != null) {
-                String[] values = line.split(",");
-                if (!records.isEmpty()) {
-                    for (int i = 0; i < values.length; i++) {
-                        values[i] = values[i].replace("\"", "");
-                    }
-                    DataRow newDataRow = new DataRow(values[0], values[1], values[2], values[3], !values[4].equals("none"), Integer.parseInt(values[5]), Integer.parseInt(values[6]), Integer.parseInt(values[7]));
-                    data.add(newDataRow);
+                String[] values = line.split(delimiter);
+                for (int i = 0; i < values.length; i++) {
+                    values[i] = values[i].replace("\"", "");
                 }
+                DataRow newDataRow = new DataRow(values[0], values[1], values[2], values[3], !values[4].equals("none"), Integer.parseInt(values[5]), Integer.parseInt(values[6]), Integer.parseInt(values[7]));
+                data.add(newDataRow);
                 records.add(Arrays.asList(values));
             }
-            System.out.println("Average of math score is: " + calculateAverageForColumn(data.stream().map(DataRow::getMathScore).collect(Collectors.toList())));
-            System.out.println("Average of reading score is: " + calculateAverageForColumn(data.stream().map(DataRow::getReadingScore).collect(Collectors.toList())));
-            System.out.println("Average of writing score is: " + calculateAverageForColumn(data.stream().map(DataRow::getWritingScore).collect(Collectors.toList())));
-            List<HashMap<DataRow, List<DataRow>>> clusteringResults = showKMeansAlgorithm(4,data);
-            List<Double[]>  sseResults =calculateSSE(clusteringResults);
-            System.out.println("DDD");
+            return data;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return null;
+    }
+
+    public void processReadFile(List<DataRow> data, int numberOfCentroids) {
+        System.out.println("Average of math score is: " + calculateAverageForColumn(data.stream().map(DataRow::getMathScore).collect(Collectors.toList())));
+        System.out.println("Average of reading score is: " + calculateAverageForColumn(data.stream().map(DataRow::getReadingScore).collect(Collectors.toList())));
+        System.out.println("Average of writing score is: " + calculateAverageForColumn(data.stream().map(DataRow::getWritingScore).collect(Collectors.toList())));
+        List<HashMap<DataRow, List<DataRow>>> clusteringResults = showKMeansAlgorithm(numberOfCentroids, data);
+        List<Double[]> sseResults = calculateSSE(clusteringResults);
+        System.out.println("Best result was for cluster run: " + clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).keySet());
+    }
+
+    private int findIndexOfBestCLusterRunBySseResults(List<Double[]> sseResults) {
+        double bestAmount = Double.MAX_VALUE;
+        int bestAmountIndex = 0;
+        for (int i = 0; i < sseResults.size(); i++) {
+            double totalAmount = 0.0;
+            for (int j = 0; j < sseResults.get(i).length; j++) {
+                totalAmount += sseResults.get(i)[j];
+            }
+            if (totalAmount < bestAmount) {
+                bestAmount = totalAmount;
+                bestAmountIndex = i;
+            }
+        }
+        return bestAmountIndex;
     }
 
     private double calculateAverageForColumn(List<Integer> columnData) {
@@ -103,9 +130,9 @@ public class DataRowService {
                 newCentroid.setWritingScore(newCentroid.getWritingScore() + dataRow.getWritingScore());
 
             });
-            newCentroid.setMathScore((int)Double.parseDouble(df.format(newCentroid.getMathScore() / (double) previousClusterData.get(centroid).size())));
-            newCentroid.setReadingScore((int)Double.parseDouble(df.format(newCentroid.getReadingScore() / (double) previousClusterData.get(centroid).size())));
-            newCentroid.setWritingScore((int)Double.parseDouble(df.format(newCentroid.getWritingScore() / (double) previousClusterData.get(centroid).size())));
+            newCentroid.setMathScore((int) Double.parseDouble(df.format(newCentroid.getMathScore() / (double) previousClusterData.get(centroid).size())));
+            newCentroid.setReadingScore((int) Double.parseDouble(df.format(newCentroid.getReadingScore() / (double) previousClusterData.get(centroid).size())));
+            newCentroid.setWritingScore((int) Double.parseDouble(df.format(newCentroid.getWritingScore() / (double) previousClusterData.get(centroid).size())));
             newCentroids.put(newCentroid, new ArrayList<DataRow>());
         }
 
@@ -126,11 +153,12 @@ public class DataRowService {
         }
         return centroids;
     }
+
     private static boolean checkIfCentroidsEqual(List<DataRow> oldCentroids, List<DataRow> newCentroids) {
         return oldCentroids.equals(newCentroids);
     }
 
-    private List<HashMap<DataRow, List<DataRow>>> showKMeansAlgorithm (int numberOfCentroids,List<DataRow> vals){
+    private List<HashMap<DataRow, List<DataRow>>> showKMeansAlgorithm(int numberOfCentroids, List<DataRow> vals) {
         List<HashMap<DataRow, List<DataRow>>> mapOfClusterMaps = new ArrayList<>();
 
         for (int j = 0; j < 5; j++) {
@@ -149,11 +177,11 @@ public class DataRowService {
             }
             System.out.println("ite: " + it);
         }
-        return  mapOfClusterMaps;
+        return mapOfClusterMaps;
     }
 
-    private  List<Double[]> calculateSSE(List<HashMap<DataRow, List<DataRow>>> listOfclusterMaps) {
-        List<Double[]>  listOfSSEValuesOfEachCluster = new ArrayList<>();
+    private List<Double[]> calculateSSE(List<HashMap<DataRow, List<DataRow>>> listOfclusterMaps) {
+        List<Double[]> listOfSSEValuesOfEachCluster = new ArrayList<>();
         for (HashMap<DataRow, List<DataRow>> clusterMap : listOfclusterMaps) {
             Double[] ssesOfClustersOfCurrentMap = calculateSumOfTheSquaresOfTheDistancesOfEachPointFromTheCentroid(clusterMap);
             listOfSSEValuesOfEachCluster.add(ssesOfClustersOfCurrentMap);
@@ -161,7 +189,7 @@ public class DataRowService {
         return listOfSSEValuesOfEachCluster;
     }
 
-    private  Double[] calculateSumOfTheSquaresOfTheDistancesOfEachPointFromTheCentroid(HashMap<DataRow, List<DataRow>> clusterMap) {
+    private Double[] calculateSumOfTheSquaresOfTheDistancesOfEachPointFromTheCentroid(HashMap<DataRow, List<DataRow>> clusterMap) {
         Double[] ssesOfClusters = new Double[clusterMap.keySet().size()];
         for (int i = 0; i < ssesOfClusters.length; i++) {
             ssesOfClusters[i] = 0.0;
