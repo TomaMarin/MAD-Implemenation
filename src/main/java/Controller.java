@@ -1,12 +1,11 @@
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.CheckMenuItem;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.MenuButton;
 import javafx.scene.control.TextField;
 import javafx.stage.FileChooser;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,7 +14,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 
 public class Controller {
@@ -34,7 +33,7 @@ public class Controller {
     @FXML
     private TextField numberOfCentroidsId;
     @FXML
-    private ComboBox ignoreAttributesComboBox;
+    private MenuButton menuButton;
     @FXML
     private CheckBox headerRowId;
     @FXML
@@ -42,11 +41,12 @@ public class Controller {
     DataRowService newDataRowService;
     private File loadedFile;
 
-    private List<DataRow> data;
+    private List<String[]> data;
 
     public void init() {
         newDataRowService = new DataRowService();
         data = new ArrayList<>();
+        menuButton = new MenuButton("Ignore attributes");
     }
 
     public void loadButtonIdClicked() throws IOException {
@@ -59,17 +59,32 @@ public class Controller {
             loadedFile = selectedFile;
             filePathId.setText(loadedFile.getCanonicalPath());
             if (numberOfCentroidsId != null && loadedFile != null && delimiterId != null && !delimiterId.getText().isEmpty()) {
-                data = newDataRowService.read(loadedFile.getName(), delimiterId.getText(), headerRowId.isSelected());
-                ignoreAttributesComboBox.setItems(FXCollections.observableArrayList( Arrays.asList(this.newDataRowService.getHeaderValues())));
+                data = newDataRowService.read(loadedFile.getPath(), delimiterId.getText(), headerRowId.isSelected());
+                Arrays.stream(this.newDataRowService.getHeaderValues()).map(CheckMenuItem::new).forEach(menuButton.getItems()::add);
             }
         }
+    }
+
+    private List<CheckMenuItem> ignoreAtt(String[] headervals) {
+        List<CheckMenuItem> menuItemList = new ArrayList<>();
+        for (String s : headervals) {
+            menuItemList.add(new CheckMenuItem(s));
+        }
+        return menuItemList;
     }
 
     public void runButtonClicked() {
         DataRowService newDataRowService = new DataRowService();
         if (numberOfCentroidsId != null && loadedFile != null && delimiterId != null && !delimiterId.getText().isEmpty()) {
             int numberOfCentroids = Integer.parseInt(numberOfCentroidsId.getText());
-            newDataRowService.processReadFile(data, numberOfCentroids);
+            HashMap<String, Integer> ignoredAttributes = new HashMap<>();
+            for (int i = 0; i < menuButton.getItems().size(); i++) {
+                CheckMenuItem m = (CheckMenuItem) menuButton.getItems().get(i);
+                if (m.isSelected()) {
+                    ignoredAttributes.put(m.getText(), i);
+                }
+            }
+            newDataRowService.processReadFile(data, numberOfCentroids, ignoredAttributes);
         } else {
             logger.info("Number of centroids is not in valid format!");
         }

@@ -1,3 +1,4 @@
+import javafx.util.Pair;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -12,27 +13,39 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-@Getter @Setter
+import java.util.stream.Stream;
+
+@Getter
+@Setter
 public class DataRowService {
     private String[] headerValues;
+
     DataRowService() {
     }
 
-    List<DataRow> read(String fileName, String delimiter, boolean isHeaderRow) {
+    List<String[]> read(String fileName, String delimiter, boolean isHeaderRow) {
         List<List<String>> records = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
             if (isHeaderRow) {
-               setHeaderValues(br.readLine().split(delimiter));
+                setHeaderValues(br.readLine().split(delimiter));
             }
             String line;
-            List<DataRow> data = new ArrayList<>();
+            List<String[]> data = new ArrayList<>();
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(delimiter);
+                if(!isHeaderRow){
+                    String[] attributesHeaderValues = new String[values.length];
+                    for (int i = 0; i <attributesHeaderValues.length ; i++) {
+                        attributesHeaderValues[i] = "Attribute" +String.valueOf(i);
+                    }
+                    setHeaderValues(attributesHeaderValues);
+                }
                 for (int i = 0; i < values.length; i++) {
                     values[i] = values[i].replace("\"", "");
                 }
-                DataRow newDataRow = new DataRow(values[0], values[1], values[2], values[3], !values[4].equals("none"), Integer.parseInt(values[5]), Integer.parseInt(values[6]), Integer.parseInt(values[7]));
+                String[] newDataRow = values;
                 data.add(newDataRow);
                 records.add(Arrays.asList(values));
             }
@@ -45,13 +58,37 @@ public class DataRowService {
         return null;
     }
 
-    public void processReadFile(List<DataRow> data, int numberOfCentroids) {
-        System.out.println("Average of math score is: " + calculateAverageForColumn(data.stream().map(DataRow::getMathScore).collect(Collectors.toList())));
-        System.out.println("Average of reading score is: " + calculateAverageForColumn(data.stream().map(DataRow::getReadingScore).collect(Collectors.toList())));
-        System.out.println("Average of writing score is: " + calculateAverageForColumn(data.stream().map(DataRow::getWritingScore).collect(Collectors.toList())));
-        List<HashMap<DataRow, List<DataRow>>> clusteringResults = showKMeansAlgorithm(numberOfCentroids, data);
+    public void processReadFile(List<String[]> data, int numberOfCentroids, HashMap<String, Integer> attributesToIgnore) {
+//        System.out.println("Average of math score is: " + calculateAverageForColumn(data.stream().map(Double::doubleValue).collect(Collectors.toList())));
+//        System.out.println("Average of reading score is: " + calculateAverageForColumn(data.stream().map(DataRow::getReadingScore).collect(Collectors.toList())));
+//        System.out.println("Average of writing score is: " + calculateAverageForColumn(data.stream().map(DataRow::getWritingScore).collect(Collectors.toList())));
+        List<List<Object>> convertedData = convertColumnsByIgnoreAttributes(data, attributesToIgnore);
+        List<HashMap<List<Object>, List<List<Object>>>> clusteringResults = showKMeansAlgorithm(numberOfCentroids, convertedData, attributesToIgnore);
         List<Double[]> sseResults = calculateSSE(clusteringResults);
-        System.out.println("Best result was for cluster run: " + clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).keySet());
+
+        System.out.println("Best result was for cluster run: ");
+        for (List<Object> d : clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).keySet()) {
+            System.out.println(d + " size of cluster  "+clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).get(d).size() ) ;
+        }
+
+    }
+
+    private List<List<Object>> convertColumnsByIgnoreAttributes(List<String[]> data, HashMap<String, Integer> attributesToIgnore) {
+        List<List<Object>> convertedData = new ArrayList<>();
+        for (String[] dataArray : data) {
+            List<Object> newConvertedRowData = new ArrayList<>();
+            for (int i = 0; i < dataArray.length; i++) {
+                if (!attributesToIgnore.containsValue(i)) {
+                    newConvertedRowData.add(Double.parseDouble(dataArray[i].replace("\"", "").replace("'", "").replace(",", ".").trim()));
+                } else {
+                    newConvertedRowData.add(dataArray[i]);
+                }
+
+
+            }
+            convertedData.add(newConvertedRowData);
+        }
+        return convertedData;
     }
 
     private int findIndexOfBestCLusterRunBySseResults(List<Double[]> sseResults) {
@@ -70,9 +107,9 @@ public class DataRowService {
         return bestAmountIndex;
     }
 
-    private double calculateAverageForColumn(List<Integer> columnData) {
+    private double calculateAverageForColumn(List<Double> columnData) {
         int totalData = 0;
-        for (Integer val :
+        for (Double val :
                 columnData) {
             totalData += val;
         }
@@ -83,11 +120,22 @@ public class DataRowService {
         return Math.sqrt(Math.pow(x1 - y1, 2) + Math.pow(x2 - y2, 2) + Math.pow(x3 - y3, 2));
     }
 
-    private HashMap<DataRow, List<DataRow>> setKMeans(int numberOfCentroids, List<DataRow> vals) {
-        List<DataRow> actualCentroids = selectRandomDataRows(vals, numberOfCentroids);
-        HashMap<DataRow, List<DataRow>> clusterMap = new HashMap<>();
+    private Double calculateEuclidanDistanceForObjectTypes(List<Object> obj1, List<Object> obj2) {
+        double sumOfPowers = 0.0;
+        Pattern pattern = Pattern.compile("-?\\d+(\\.\\d+)?");
+        for (int i = 0; i < obj1.size(); i++) {
+            if (pattern.matcher(obj1.get(i).toString().replace("\"", "")).matches() && pattern.matcher(obj2.get(i).toString().replace("\"", "")).matches()) {
+                sumOfPowers += Math.pow(Double.parseDouble(obj1.get(i).toString()) - Double.parseDouble(obj2.get(i).toString()), 2);
+            }
+        }
+        return Math.sqrt(sumOfPowers);
+    }
 
-        for (DataRow fp : actualCentroids) {
+    private HashMap<List<Object>, List<List<Object>>> setKMeans(int numberOfCentroids, List<List<Object>> vals) {
+        List<List<Object>> actualCentroids = selectRandomDataRows(vals, numberOfCentroids);
+        HashMap<List<Object>, List<List<Object>>> clusterMap = new HashMap<>();
+
+        for (List<Object> fp : actualCentroids) {
             clusterMap.put(fp, new ArrayList<>());
         }
 
@@ -96,20 +144,20 @@ public class DataRowService {
 
     }
 
-    private List<DataRow> selectRandomDataRows(List<DataRow> vals, int numberOfRows) {
-        List<DataRow> actualCentroids = new ArrayList<>();
+    private List<List<Object>> selectRandomDataRows(List<List<Object>> vals, int numberOfRows) {
+        List<List<Object>> actualCentroids = new ArrayList<>();
         for (int i = 0; i < numberOfRows; i++) {
             actualCentroids.add(vals.get((int) (Math.random() * vals.size())));
         }
         return actualCentroids;
     }
 
-    private DataRow findNearestCentroidByEuclidDistForItem(DataRow item, Set<DataRow> centroids) {
-        Double minDistance = Double.MAX_VALUE;
-        DataRow bestCentroidForItem = new DataRow();
-        for (DataRow centroid : centroids) {
-            Double actualDistance = calculateEuclidanDistance(item.getMathScore(), item.getReadingScore(), item.getWritingScore()
-                    , centroid.getMathScore(), centroid.getReadingScore(), centroid.getWritingScore());
+
+    private List<Object> findNearestCentroidByEuclidDistForItem(List<Object> item, Set<List<Object>> centroids) {
+        double minDistance = Double.MAX_VALUE;
+        List<Object> bestCentroidForItem = new ArrayList<>();
+        for (List<Object> centroid : centroids) {
+            Double actualDistance = calculateEuclidanDistanceForObjectTypes(item, centroid);
             if (actualDistance < minDistance) {
                 minDistance = actualDistance;
                 bestCentroidForItem = centroid;
@@ -119,32 +167,43 @@ public class DataRowService {
 
     }
 
-    private HashMap<DataRow, List<DataRow>> calculateNewCentroids(HashMap<DataRow, List<DataRow>> previousClusterData, List<DataRow> vals) {
-        HashMap<DataRow, List<DataRow>> newCentroids = new HashMap<>();
+    private HashMap<List<Object>, List<List<Object>>> calculateNewCentroids(HashMap<List<Object>, List<List<Object>>> previousClusterData, List<List<Object>> vals, HashMap<String, Integer> attributesToIgnore) {
+        HashMap<List<Object>, List<List<Object>>> newCentroids = new HashMap<>();
         DecimalFormat df = new DecimalFormat("#.#");
-        for (DataRow centroid : previousClusterData.keySet()) {
-            DataRow newCentroid = new DataRow(0, 0, 0);
-            previousClusterData.get(centroid).forEach(dataRow -> {
-                newCentroid.setMathScore(newCentroid.getMathScore() + dataRow.getMathScore());
-                newCentroid.setReadingScore(newCentroid.getReadingScore() + dataRow.getReadingScore());
-                newCentroid.setWritingScore(newCentroid.getWritingScore() + dataRow.getWritingScore());
-
-            });
-            newCentroid.setMathScore((int) Double.parseDouble(df.format(newCentroid.getMathScore() / (double) previousClusterData.get(centroid).size())));
-            newCentroid.setReadingScore((int) Double.parseDouble(df.format(newCentroid.getReadingScore() / (double) previousClusterData.get(centroid).size())));
-            newCentroid.setWritingScore((int) Double.parseDouble(df.format(newCentroid.getWritingScore() / (double) previousClusterData.get(centroid).size())));
-            newCentroids.put(newCentroid, new ArrayList<DataRow>());
+        for (List<Object> centroid : previousClusterData.keySet()) {
+            List<Object> newCentroid = new ArrayList<>();
+            for (int i = 0; i < centroid.size(); i++) {
+                if (!attributesToIgnore.containsValue(i)) {
+                    newCentroid.add(0.0);
+                } else {
+                    newCentroid.add("");
+                }
+            }
+            for (List<Object> row :
+                    previousClusterData.get(centroid)) {
+                for (int i = 0; i < row.size(); i++) {
+                    if (row.get(i) instanceof Double) {
+                        newCentroid.set(i, (Double) newCentroid.get(i) + (Double) row.get(i));
+                    }
+                }
+            }
+            for (int i = 0; i < newCentroid.size(); i++) {
+                if (newCentroid.get(i) instanceof Double) {
+                    newCentroid.set(i, (Double) newCentroid.get(i) / (double) previousClusterData.get(centroid).size());
+                }
+            }
+            newCentroids.put(newCentroid, new ArrayList<List<Object>>());
         }
 
         return findBestCentroidForEveryDataRow(vals, newCentroids);
 
     }
 
-    private HashMap<DataRow, List<DataRow>> findBestCentroidForEveryDataRow(List<DataRow> vals, HashMap<DataRow, List<DataRow>> centroids) {
-        for (DataRow item : vals) {
-            DataRow bestCentroidForItem = findNearestCentroidByEuclidDistForItem(item, centroids.keySet());
+    private HashMap<List<Object>, List<List<Object>>> findBestCentroidForEveryDataRow(List<List<Object>> vals, HashMap<List<Object>, List<List<Object>>> centroids) {
+        for (List<Object> item : vals) {
+            List<Object> bestCentroidForItem = findNearestCentroidByEuclidDistForItem(item, centroids.keySet());
 
-            List<DataRow> actualClusterForNearestCentroid = new ArrayList<>();
+            List<List<Object>> actualClusterForNearestCentroid = new ArrayList<>();
             if (centroids.get(bestCentroidForItem) != null) {
                 actualClusterForNearestCentroid = centroids.get(bestCentroidForItem);
             }
@@ -154,25 +213,25 @@ public class DataRowService {
         return centroids;
     }
 
-    private static boolean checkIfCentroidsEqual(List<DataRow> oldCentroids, List<DataRow> newCentroids) {
+    private static boolean checkIfCentroidsEqual(List<List<Object>> oldCentroids, List<List<Object>> newCentroids) {
         return oldCentroids.equals(newCentroids);
     }
 
-    private List<HashMap<DataRow, List<DataRow>>> showKMeansAlgorithm(int numberOfCentroids, List<DataRow> vals) {
-        List<HashMap<DataRow, List<DataRow>>> mapOfClusterMaps = new ArrayList<>();
+    private List<HashMap<List<Object>, List<List<Object>>>> showKMeansAlgorithm(int numberOfCentroids, List<List<Object>> vals, HashMap<String, Integer> attributesToIgnore) {
+        List<HashMap<List<Object>, List<List<Object>>>> mapOfClusterMaps = new ArrayList<>();
 
-        for (int j = 0; j < 5; j++) {
-            HashMap<DataRow, List<DataRow>> kk = setKMeans(numberOfCentroids, vals);
-            HashMap<DataRow, List<DataRow>> newCentroids = calculateNewCentroids(kk, vals);
+        for (int j = 0; j < numberOfCentroids; j++) {
+            HashMap<List<Object>, List<List<Object>>> kk = setKMeans(numberOfCentroids, vals);
+            HashMap<List<Object>, List<List<Object>>> newCentroids = calculateNewCentroids(kk, vals, attributesToIgnore);
             int it = 0;
             while (true) {
-                List<DataRow> oldCentroids = new ArrayList<>(newCentroids.keySet());
-                List<DataRow> newerCentroids = new ArrayList<>(calculateNewCentroids(newCentroids, vals).keySet());
+                List<List<Object>> oldCentroids = new ArrayList<>(newCentroids.keySet());
+                List<List<Object>> newerCentroids = new ArrayList<>(calculateNewCentroids(newCentroids, vals, attributesToIgnore).keySet());
                 if (checkIfCentroidsEqual(oldCentroids, newerCentroids)) {
                     mapOfClusterMaps.add(newCentroids);
                     break;
                 }
-                newCentroids = calculateNewCentroids(newCentroids, vals);
+                newCentroids = calculateNewCentroids(newCentroids, vals, attributesToIgnore);
                 it++;
             }
             System.out.println("ite: " + it);
@@ -180,25 +239,33 @@ public class DataRowService {
         return mapOfClusterMaps;
     }
 
-    private List<Double[]> calculateSSE(List<HashMap<DataRow, List<DataRow>>> listOfclusterMaps) {
+    private List<Double[]> calculateSSE(List<HashMap<List<Object>, List<List<Object>>>> listOfclusterMaps) {
         List<Double[]> listOfSSEValuesOfEachCluster = new ArrayList<>();
-        for (HashMap<DataRow, List<DataRow>> clusterMap : listOfclusterMaps) {
+        for (HashMap<List<Object>, List<List<Object>>> clusterMap : listOfclusterMaps) {
             Double[] ssesOfClustersOfCurrentMap = calculateSumOfTheSquaresOfTheDistancesOfEachPointFromTheCentroid(clusterMap);
             listOfSSEValuesOfEachCluster.add(ssesOfClustersOfCurrentMap);
         }
         return listOfSSEValuesOfEachCluster;
     }
 
-    private Double[] calculateSumOfTheSquaresOfTheDistancesOfEachPointFromTheCentroid(HashMap<DataRow, List<DataRow>> clusterMap) {
+    private Double[] calculateSumOfTheSquaresOfTheDistancesOfEachPointFromTheCentroid(HashMap<List<Object>, List<List<Object>>> clusterMap) {
         Double[] ssesOfClusters = new Double[clusterMap.keySet().size()];
         for (int i = 0; i < ssesOfClusters.length; i++) {
             ssesOfClusters[i] = 0.0;
         }
 
+
+        // for each run of k means , calc for each key => vals euclid  distance
         for (int i = 0; i < clusterMap.keySet().size(); i++) {
-            List<DataRow> actualClusters = new ArrayList(clusterMap.keySet());
+            List<List<Object>> actualClusters = new ArrayList(clusterMap.keySet());
             for (int j = 0; j < clusterMap.get(actualClusters.get(i)).size(); j++) {
-                ssesOfClusters[i] += calculateEuclidanDistance(actualClusters.get(i).getMathScore(), actualClusters.get(i).getReadingScore(), actualClusters.get(i).getWritingScore(), clusterMap.get(actualClusters.get(i)).get(j).getMathScore(), clusterMap.get(actualClusters.get(i)).get(j).getReadingScore(), clusterMap.get(actualClusters.get(i)).get(j).getWritingScore());
+                Double totalVal = 0.0;
+                for (int k = 0; k < actualClusters.get(i).size(); k++) {
+                    if (actualClusters.get(i).get(k) instanceof Double) {
+                        totalVal += Math.pow((Double) actualClusters.get(i).get(k) - (Double) clusterMap.get(actualClusters.get(i)).get(j).get(k), 2);
+                    }
+                }
+                ssesOfClusters[i] += Math.sqrt(totalVal);
             }
         }
         return ssesOfClusters;
