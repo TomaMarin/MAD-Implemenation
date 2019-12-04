@@ -3,8 +3,11 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -35,10 +38,10 @@ public class DataRowService {
             List<String[]> data = new ArrayList<>();
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(delimiter);
-                if(!isHeaderRow){
+                if (!isHeaderRow) {
                     String[] attributesHeaderValues = new String[values.length];
-                    for (int i = 0; i <attributesHeaderValues.length ; i++) {
-                        attributesHeaderValues[i] = "Attribute" +String.valueOf(i);
+                    for (int i = 0; i < attributesHeaderValues.length; i++) {
+                        attributesHeaderValues[i] = "Attribute" + String.valueOf(i);
                     }
                     setHeaderValues(attributesHeaderValues);
                 }
@@ -58,17 +61,48 @@ public class DataRowService {
         return null;
     }
 
-    public void processReadFile(List<String[]> data, int numberOfCentroids, HashMap<String, Integer> attributesToIgnore) {
+    public void processReadFile(List<String[]> data, int numberOfCentroids, HashMap<String, Integer> attributesToIgnore, File loadedFile) throws IOException {
 //        System.out.println("Average of math score is: " + calculateAverageForColumn(data.stream().map(Double::doubleValue).collect(Collectors.toList())));
 //        System.out.println("Average of reading score is: " + calculateAverageForColumn(data.stream().map(DataRow::getReadingScore).collect(Collectors.toList())));
 //        System.out.println("Average of writing score is: " + calculateAverageForColumn(data.stream().map(DataRow::getWritingScore).collect(Collectors.toList())));
         List<List<Object>> convertedData = convertColumnsByIgnoreAttributes(data, attributesToIgnore);
         List<HashMap<List<Object>, List<List<Object>>>> clusteringResults = showKMeansAlgorithm(numberOfCentroids, convertedData, attributesToIgnore);
         List<Double[]> sseResults = calculateSSE(clusteringResults);
+        BufferedWriter writer = new BufferedWriter(new FileWriter("results.txt"));
+        writer.write(loadedFile.getName());
+        writer.newLine();
+        writer.newLine();
+        writer.write("Headers: ");
+        for (String k :getHeaderValues()) {
+            writer.write(" "+k);
+        }
+
+        writer.newLine();
+        writer.newLine();
+        writer.write("Ignored Attributes: ");
+        for (String k :attributesToIgnore.keySet()) {
+            writer.write(" "+k);
+        }
+        writer.newLine();
+        writer.newLine();
+
+        writer.write("Number of rows: " + data.size());
+        writer.newLine();
+        writer.newLine();
+        writer.write("Best result was for cluster run: ");
+        int i=0;
+        for (List<Object> d : clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).keySet()) {
+            writer.newLine();
+            writer.write("Cluster "+i +" "+ d+" size of cluster  " + clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).get(d).size());
+            i++;
+        }
+        writer.newLine();
+        writer.newLine();
+        writer.close();
 
         System.out.println("Best result was for cluster run: ");
         for (List<Object> d : clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).keySet()) {
-            System.out.println(d + " size of cluster  "+clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).get(d).size() ) ;
+            System.out.println(d + " size of cluster  " + clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)).get(d).size());
         }
 
     }
@@ -79,7 +113,11 @@ public class DataRowService {
             List<Object> newConvertedRowData = new ArrayList<>();
             for (int i = 0; i < dataArray.length; i++) {
                 if (!attributesToIgnore.containsValue(i)) {
-                    newConvertedRowData.add(Double.parseDouble(dataArray[i].replace("\"", "").replace("'", "").replace(",", ".").trim()));
+                    if (!dataArray[i].isEmpty()) {
+                        newConvertedRowData.add(Double.parseDouble(dataArray[i].replace("\"", "").replace("'", "").replace(",", ".").trim()));
+                    } else {
+                        newConvertedRowData.add(0.0);
+                    }
                 } else {
                     newConvertedRowData.add(dataArray[i]);
                 }
@@ -115,6 +153,24 @@ public class DataRowService {
         }
         return (double) totalData / columnData.size();
     }
+
+    private double calcEuclidanDistanceForObjects(Object obj1, Object obj2) {
+        Double sumOfPowers = 0.0;
+            if (obj1 instanceof Double && obj2 instanceof Double) {
+                sumOfPowers += Math.pow((Double)obj1 - (Double)obj2, 2);
+
+        }
+        return sumOfPowers;
+    }
+
+//    private static double calcTotalVariance(List<List<Object>> points, List<Object> avgPoint) {
+//        double totalAmount = 0;
+//        for (List<Object> p : points) {
+//            totalAmount += Math.abs(Math.pow(calcEuclidanDistanceForObjects(p.getxPoint(), avgPoint.getxPoint(), p.getyPoint(), avgPoint.getyPoint()), 2));
+//        }
+//        return totalAmount / points.size();
+//
+//    }
 
     private Double calculateEuclidanDistance(int x1, int x2, int x3, int y1, int y2, int y3) {
         return Math.sqrt(Math.pow(x1 - y1, 2) + Math.pow(x2 - y2, 2) + Math.pow(x3 - y3, 2));

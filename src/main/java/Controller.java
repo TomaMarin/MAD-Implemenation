@@ -73,8 +73,7 @@ public class Controller {
         return menuItemList;
     }
 
-    public void runButtonClicked() {
-        DataRowService newDataRowService = new DataRowService();
+    public void runButtonClicked() throws IOException {
         if (numberOfCentroidsId != null && loadedFile != null && delimiterId != null && !delimiterId.getText().isEmpty()) {
             int numberOfCentroids = Integer.parseInt(numberOfCentroidsId.getText());
             HashMap<String, Integer> ignoredAttributes = new HashMap<>();
@@ -84,7 +83,7 @@ public class Controller {
                     ignoredAttributes.put(m.getText(), i);
                 }
             }
-            newDataRowService.processReadFile(data, numberOfCentroids, ignoredAttributes);
+            newDataRowService.processReadFile(data, numberOfCentroids, ignoredAttributes, loadedFile);
         } else {
             logger.info("Number of centroids is not in valid format!");
         }

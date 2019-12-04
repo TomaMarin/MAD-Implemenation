@@ -1,0 +1,14 @@
+StudentsPerformance.csv
+
+Headers:  "gender" "race/ethnicity" "parental level of education" "lunch" "test preparation course" "math score" "reading score" "writing score"
+
+Ignored Attributes:  "lunch" "test preparation course" "race/ethnicity" "gender" "parental level of education"
+
+Number of rows: 1000
+
+Best result was for cluster run: 
+Cluster 0 [, , , , , 85.33505154639175, 88.49484536082474, 87.79896907216495] size of cluster  194
+Cluster 1 [, , , , , 70.93888888888888, 74.54444444444445, 73.69444444444444] size of cluster  360
+Cluster 2 [, , , , , 58.81443298969072, 61.553264604811, 60.57044673539519] size of cluster  291
+Cluster 3 [, , , , , 44.39354838709677, 46.79354838709678, 44.29032258064516] size of cluster  155
+
