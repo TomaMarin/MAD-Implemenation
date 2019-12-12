@@ -1,4 +1,5 @@
 import javafx.fxml.FXML;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.CheckMenuItem;
@@ -35,9 +36,13 @@ public class Controller {
     @FXML
     private MenuButton menuButton;
     @FXML
+    private MenuButton graphMenuButton;
+    @FXML
     private CheckBox headerRowId;
     @FXML
     private Button runButtonId;
+    @FXML
+    private Button drawGraphButtonId;
     DataRowService newDataRowService;
     private File loadedFile;
 
@@ -60,6 +65,7 @@ public class Controller {
             filePathId.setText(loadedFile.getCanonicalPath());
             if (numberOfCentroidsId != null && loadedFile != null && delimiterId != null && !delimiterId.getText().isEmpty()) {
                 data = newDataRowService.read(loadedFile.getPath(), delimiterId.getText(), headerRowId.isSelected());
+                menuButton.getItems().clear();
                 Arrays.stream(this.newDataRowService.getHeaderValues()).map(CheckMenuItem::new).forEach(menuButton.getItems()::add);
             }
         }
@@ -84,9 +90,35 @@ public class Controller {
                 }
             }
             newDataRowService.processReadFile(data, numberOfCentroids, ignoredAttributes, loadedFile);
+            graphMenuButton.getItems().clear();
+            Arrays.stream(this.newDataRowService.getHeaderValues()).filter(s -> !ignoredAttributes.containsKey(s)).map(CheckMenuItem::new).forEach(graphMenuButton.getItems()::add);
         } else {
             logger.info("Number of centroids is not in valid format!");
         }
 
+    }
+
+    public  void drawGraphButtonClicked(){
+        HashMap<Integer,String> attributesToDraw = new HashMap<>();
+        for (int i = 0; i < graphMenuButton.getItems().size(); i++) {
+            CheckMenuItem m = (CheckMenuItem) graphMenuButton.getItems().get(i);
+            if (m.isSelected()) {
+                for (int j = 0; j <newDataRowService.getHeaderValues().length ; j++) {
+                    if(newDataRowService.getHeaderValues()[j].equals(m.getText())){
+                        attributesToDraw.put(j,m.getText() );
+                    }
+                }
+
+            }
+        }
+        if(attributesToDraw.size()>3) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Warning Dialog");
+            alert.setHeaderText("Maximal number of attributes exceeded!  ");
+            alert.setContentText("Maximal number of attributes is 2.");
+            alert.showAndWait();
+            return;
+        }
+        newDataRowService.drawGraphByAvailableDimension(newDataRowService.getClusterData(), attributesToDraw);
     }
 }
