@@ -19,7 +19,7 @@ public class Main extends Application {
         loader.setLocation(url);
         Parent root = loader.load();
         Main.primaryStage = primaryStage;
-        mainScene = new Scene(root, 800   , 600);
+        mainScene = new Scene(root, 600   , 400);
         primaryStage.setScene(mainScene);
         primaryStage.setTitle("Hello World");
         primaryStage.show();

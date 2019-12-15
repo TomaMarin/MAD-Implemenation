@@ -31,9 +31,9 @@ Standard deviation of numeric attribute: "reading score" is: 14.573297499193517
 Standard deviation of numeric attribute: "writing score" is: 15.164069374676442
 
 
-Best result with number of 9 iterations, with SSE: 10547.617807801784,  was for clustering run: 
-Cluster 0 [, , , , , 59.21739130434783, 61.86622073578595, 60.94314381270903] size of cluster  299
-Cluster 1 [, , , , , 71.22096317280453, 74.91784702549575, 73.98300283286119] size of cluster  353
-Cluster 2 [, , , , , 44.503144654088054, 46.9811320754717, 44.56603773584906] size of cluster  159
-Cluster 3 [, , , , , 85.53439153439153, 88.65079365079364, 87.98941798941799] size of cluster  189
+Best result with number of 12 iterations, with SSE: 10563.67186290962,  was for clustering run: 
+Cluster 0 [, , , , , 58.70307167235495, 61.48122866894198, 60.45392491467577] size of cluster  293
+Cluster 1 [, , , , , 44.276315789473685, 46.61842105263158, 44.13815789473684] size of cluster  152
+Cluster 2 [, , , , , 85.33505154639175, 88.49484536082474, 87.79896907216495] size of cluster  194
+Cluster 3 [, , , , , 70.92520775623268, 74.5180055401662, 73.68144044321329] size of cluster  361
 

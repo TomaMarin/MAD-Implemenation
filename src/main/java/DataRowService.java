@@ -395,7 +395,7 @@ public class DataRowService {
             for (int j = 0; j < sseResults.get(i).length; j++) {
                 totalAmount += sseResults.get(i)[j];
             }
-            if (totalAmount < bestAmount) {
+            if (totalAmount > bestAmount) {
                 bestAmount = totalAmount;
                 bestAmountIndex = i;
             }
