@@ -82,7 +82,7 @@
             </HBox>
             <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" GridPane.columnIndex="1" GridPane.rowIndex="4">
                <children>
-                  <Button fx:id="drawGraphButtonId" mnemonicParsing="false" onAction="#drawGraphButtonClicked" text="Draw Graph " />
+                  <Button fx:id="drawGraphButtonId" mnemonicParsing="false" onAction="#drawGraphButtonClicked" text="Draw Cluster Graph " />
                </children>
             </HBox>
             <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" GridPane.rowIndex="4">
@@ -91,6 +91,11 @@
 
                   </MenuButton>
                </children></HBox>
+            <HBox alignment="CENTER" prefHeight="100.0" prefWidth="200.0" GridPane.columnIndex="2" GridPane.rowIndex="4">
+               <children>
+                  <Button fx:id="drawFrequencyButton" mnemonicParsing="false" onAction="#drawFrequencyButtonClicked" prefHeight="25.0" prefWidth="145.0" text="Draw Frequency" />
+               </children>
+            </HBox>
          </children>
       </GridPane>
    </children>

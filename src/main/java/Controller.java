@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class Controller {
     private final Logger logger = LoggerFactory.getLogger(Controller.class);
@@ -43,15 +44,20 @@ public class Controller {
     private Button runButtonId;
     @FXML
     private Button drawGraphButtonId;
+    @FXML
+    private Button drawFrequencyButton;
+
+
     DataRowService newDataRowService;
     private File loadedFile;
-
+    HashMap<Integer, String> attributesToDraw;
     private List<String[]> data;
 
     public void init() {
         newDataRowService = new DataRowService();
         data = new ArrayList<>();
         menuButton = new MenuButton("Ignore attributes");
+        attributesToDraw = new HashMap<>();
     }
 
     public void loadButtonIdClicked() throws IOException {
@@ -63,6 +69,7 @@ public class Controller {
         if (selectedFile != null) {
             loadedFile = selectedFile;
             filePathId.setText(loadedFile.getCanonicalPath());
+            attributesToDraw = new HashMap<>();
             if (numberOfCentroidsId != null && loadedFile != null && delimiterId != null && !delimiterId.getText().isEmpty()) {
                 data = newDataRowService.read(loadedFile.getPath(), delimiterId.getText(), headerRowId.isSelected());
                 menuButton.getItems().clear();
@@ -98,20 +105,20 @@ public class Controller {
 
     }
 
-    public  void drawGraphButtonClicked(){
-        HashMap<Integer,String> attributesToDraw = new HashMap<>();
+    public void drawGraphButtonClicked() {
+
         for (int i = 0; i < graphMenuButton.getItems().size(); i++) {
             CheckMenuItem m = (CheckMenuItem) graphMenuButton.getItems().get(i);
             if (m.isSelected()) {
-                for (int j = 0; j <newDataRowService.getHeaderValues().length ; j++) {
-                    if(newDataRowService.getHeaderValues()[j].equals(m.getText())){
-                        attributesToDraw.put(j,m.getText() );
+                for (int j = 0; j < newDataRowService.getHeaderValues().length; j++) {
+                    if (newDataRowService.getHeaderValues()[j].equals(m.getText())) {
+                        attributesToDraw.put(j, m.getText());
                     }
                 }
 
             }
         }
-        if(attributesToDraw.size()>3) {
+        if (attributesToDraw.size() > 3) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
             alert.setTitle("Warning Dialog");
             alert.setHeaderText("Maximal number of attributes exceeded!  ");
@@ -120,5 +127,28 @@ public class Controller {
             return;
         }
         newDataRowService.drawGraphByAvailableDimension(newDataRowService.getClusterData(), attributesToDraw);
+    }
+
+    public void drawFrequencyButtonClicked() {
+        for (int i = 0; i < graphMenuButton.getItems().size(); i++) {
+            CheckMenuItem m = (CheckMenuItem) graphMenuButton.getItems().get(i);
+            if (m.isSelected()) {
+                for (int j = 0; j < newDataRowService.getHeaderValues().length; j++) {
+                    if (newDataRowService.getHeaderValues()[j].equals(m.getText())) {
+                        attributesToDraw.put(j, m.getText());
+                    }
+                }
+
+            }
+        }
+        if (attributesToDraw.size() <1) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("Warning Dialog");
+            alert.setHeaderText("Minimal number of attributes needed!  ");
+            alert.setContentText("Minimal number of attributes is 1.");
+            alert.showAndWait();
+            return;
+        }
+        newDataRowService.drawNormalDistributionGraph(newDataRowService.getConvertedData(), attributesToDraw);
     }
 }

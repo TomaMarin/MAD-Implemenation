@@ -14,7 +14,6 @@ import org.knowm.xchart.XYSeries;
 import org.knowm.xchart.style.Styler;
 import org.knowm.xchart.style.markers.SeriesMarkers;
 
-import java.awt.*;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -23,12 +22,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -38,6 +33,24 @@ public class DataRowService {
     private String[] headerValues;
     private int[] numberOfIterationsRun;
     private HashMap<List<Object>, List<List<Object>>> clusterData;
+    private List<List<Object>> convertedData;
+    private  Double[] averages;
+
+    public Double[] getAverages() {
+        return averages;
+    }
+
+    public void setAverages(Double[] averages) {
+        this.averages = averages;
+    }
+
+    public List<List<Object>> getConvertedData() {
+        return convertedData;
+    }
+
+    public void setConvertedData(List<List<Object>> convertedData) {
+        this.convertedData = convertedData;
+    }
 
     public String[] getHeaderValues() {
         return headerValues;
@@ -67,8 +80,10 @@ public class DataRowService {
     }
 
     List<String[]> read(String fileName, String delimiter, boolean isHeaderRow) {
+        setConvertedData(null);
         setHeaderValues(null);
         setNumberOfIterationsRun(null);
+        setAverages(null);
         List<List<String>> records = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
             if (isHeaderRow) {
@@ -115,8 +130,10 @@ public class DataRowService {
         if (convertedData == null) {
             return;
         }
+        setConvertedData(convertedData);
         List<HashMap<List<Object>, List<List<Object>>>> clusteringResults = showKMeansAlgorithm(numberOfCentroids, convertedData, attributesToIgnore);
         Double[] averages = calculateAveragesOfNumericAttributes(getHeaderValues(), attributesToIgnore, convertedData);
+        setAverages(averages);
         Double[] variances = calcVarianceForEveryAttribute(getHeaderValues(), attributesToIgnore, convertedData, averages);
         List<Double[]> sseResults = calculateSSE(clusteringResults);
         setClusterData(clusteringResults.get(findIndexOfBestCLusterRunBySseResults(sseResults)));
@@ -206,8 +223,70 @@ public class DataRowService {
 
     }
 
+
+    private static HashMap<Double, Double> calcFrequencyOfList(List<List<Object>> data, int indexOfAttribute) {
+        HashMap freqOfvales = new HashMap<Double, Integer>();
+
+        for (List<Object> row : data) {
+            if (!freqOfvales.containsKey(row.get(indexOfAttribute))) {
+                freqOfvales.put(row.get(indexOfAttribute), 0.0);
+            }
+            freqOfvales.put(row.get(indexOfAttribute), calcFrequency(data, (Double) row.get(indexOfAttribute), indexOfAttribute));
+
+        }
+
+        return freqOfvales;
+    }
+
+    private static Double calcFrequency(List<List<Object>> data, Double amount, int indexOfAttribute) {
+        Double freq = 0.0;
+        for (List<Object> row : data) {
+            if (row.get(indexOfAttribute).equals(amount)) {
+                freq++;
+            }
+        }
+
+        return freq;
+    }
+
+    public void drawNormalDistributionGraph(List<List<Object>> convertedData, HashMap<Integer, String> attributesToDraw) {
+
+        for (Integer k:
+        attributesToDraw.keySet()) {
+
+
+            HashMap<Double, Double> frequenc = calcFrequencyOfList(convertedData, k);
+
+            TreeMap<Double, Double> relativeFrequencyMap = new TreeMap<>();
+            for (Map.Entry<Double, Double> m : frequenc.entrySet()) {
+                relativeFrequencyMap.put(m.getKey(), (m.getValue() / (double) convertedData.size()));
+            }
+            double avg = calculateAverageForColumn(convertedData, k);
+            TreeMap<Double, Double> nominalDistributionMap = new TreeMap<>();
+            for (Map.Entry<Double, Double> m : frequenc.entrySet()) {
+                nominalDistributionMap.put(m.getKey(), (countNominalDistribution(m.getKey(), avg, Math.sqrt(calcTotalVarianceForOneAttribute(convertedData, getAverages(), k)))));
+            }
+
+            XYChart relativeFrequencyMapChart = new XYChartBuilder().width(600).height(500).title("RelativeFrequency "+ attributesToDraw.get(k)).xAxisTitle("X - width").yAxisTitle("Y - length").build();
+            relativeFrequencyMapChart.getStyler().setDefaultSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line);
+            relativeFrequencyMapChart.getStyler().setChartTitleVisible(false);
+            relativeFrequencyMapChart.getStyler().setLegendPosition(Styler.LegendPosition.InsideNW);
+            relativeFrequencyMapChart.getStyler().setMarkerSize(16);
+            relativeFrequencyMapChart.addSeries("relativeFrequencyMap Series", new ArrayList<Double>(relativeFrequencyMap.keySet()), new ArrayList<>(relativeFrequencyMap.values()));
+            relativeFrequencyMapChart.addSeries("nominalDistributionMap", new ArrayList<Double>(nominalDistributionMap.keySet()), new ArrayList<>(nominalDistributionMap.values()));
+            relativeFrequencyMapChart.addSeries("Mean", Collections.singletonList(avg), Collections.singletonList(avg / convertedData.size()));
+            new SwingWrapper<>(relativeFrequencyMapChart).displayChart();
+
+        }
+    }
+    public static Double countNominalDistribution(double x, double mean, double deviation) {
+        return (1 / (Math.sqrt(2 * Math.PI * Math.pow(deviation, 2)))) * Math.exp(-((Math.pow((x - mean), 2)) / (2 * Math.pow(deviation, 2)))) /5;
+    }
+
+
     public void drawGraphByAvailableDimension(HashMap<List<Object>, List<List<Object>>> clusterData, HashMap<Integer, String> attributesToDraw) {
-        if(attributesToDraw.size()==2) {
+
+        if (attributesToDraw.size() == 2) {
             List<List<Double>> xVals = new ArrayList<>();
             List<List<Double>> yVals = new ArrayList<>();
             for (List<Object> key : clusterData.keySet()) {
@@ -227,16 +306,16 @@ public class DataRowService {
         }
 
 
-        if(attributesToDraw.size()==3) {
+        if (attributesToDraw.size() == 3) {
             float x;
             float y;
             float z;
             Coord3d[] points = new Coord3d[clusterData.values().size()];
 
-            for(int i=0; i<clusterData.values().size(); i++){
-                x = (float)Math.random() - 0.5f;
-                y = (float)Math.random() - 0.5f;
-                z = (float)Math.random() - 0.5f;
+            for (int i = 0; i < clusterData.values().size(); i++) {
+                x = (float) Math.random() - 0.5f;
+                y = (float) Math.random() - 0.5f;
+                z = (float) Math.random() - 0.5f;
                 points[i] = new Coord3d(x, y, z);
             }
 
@@ -324,13 +403,13 @@ public class DataRowService {
         return bestAmountIndex;
     }
 
-    private double calculateAverageForColumn(List<Double> columnData) {
-        int totalData = 0;
-        for (Double val :
-                columnData) {
-            totalData += val;
+    private double calculateAverageForColumn(List<List<Object>> data,int columnIndex) {
+        Double totalData = 0.0;
+        for (List<Object> val :
+                data) {
+            totalData += (Double) val.get(columnIndex);
         }
-        return (double) totalData / columnData.size();
+        return (double) totalData / data.size();
     }
 
     private static double calcEuclidanDistanceForObjects(Object obj1, Object obj2) {
@@ -342,6 +421,14 @@ public class DataRowService {
         return sumOfPowers;
     }
 
+    private static Double calcTotalVarianceForOneAttribute( List<List<Object>> data, Double[] averages, int indexOfAttribute){
+        Double variance = 0.0;
+        for (int j = 0; j  < data.size(); j++) {
+
+            variance += Math.abs(Math.pow(calcEuclidanDistanceForObjects(data.get(j).get(indexOfAttribute), averages[indexOfAttribute]),2));
+            }
+        return variance/data.size();
+    }
 
     private static Double[] calcVarianceForEveryAttribute(String[] headerValues, HashMap<String, Integer> ignoredAttributesMap, List<List<Object>> data, Double[] averages) {
         Double[] variances = new Double[headerValues.length];
